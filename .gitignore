@@ -1,0 +1,7 @@
+# Never upload this -- it contains your real Gmail address and app password.
+config.py
+
+# Editor/OS clutter that doesn't need to be tracked
+__pycache__/
+*.pyc
+.vscode/
