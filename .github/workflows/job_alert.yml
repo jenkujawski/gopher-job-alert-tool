@@ -1,0 +1,57 @@
+name: Job Alert Check
+
+# WHEN this runs:
+on:
+  schedule:
+    # Cron syntax: minute hour day month weekday. "0 * * * *" means
+    # "at minute 0 of every hour" -- i.e. once an hour, on the hour.
+    - cron: "0 * * * *"
+  # This lets you also trigger it manually from GitHub's website, which
+  # is how we'll do our first test run instead of waiting for the clock.
+  workflow_dispatch:
+
+# Give this workflow permission to save changes (the updated
+# seen_jobs.json) back to the repository after each run.
+permissions:
+  contents: write
+
+jobs:
+  check-jobs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create config.py from GitHub Secrets
+        # config.py never lives in the repository -- it gets built
+        # fresh, right here, using the private values stored in
+        # GitHub Secrets (Settings -> Secrets and variables -> Actions).
+        run: |
+          cat << EOF > config.py
+          GMAIL_ADDRESS = "${{ secrets.GMAIL_ADDRESS }}"
+          GMAIL_APP_PASSWORD = "${{ secrets.GMAIL_APP_PASSWORD }}"
+          NOTIFY_EMAIL = "${{ secrets.NOTIFY_EMAIL }}"
+          EOF
+
+      - name: Run the job alert script
+        run: python job_alert.py
+
+      - name: Save updated seen_jobs.json back to the repository
+        # Without this step, every hourly run would start from scratch
+        # (no memory of previous runs) and re-email you the same jobs
+        # forever, since GitHub Actions doesn't keep files between runs
+        # on its own -- it starts fresh from the repository every time.
+        run: |
+          git config user.name "job-alert-bot"
+          git config user.email "actions@github.com"
+          git add seen_jobs.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update seen jobs"
+          git push
