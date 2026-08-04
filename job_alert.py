@@ -94,14 +94,45 @@ COMPANIES = [
     {"name": "Articulate", "slug": "articulate", "ats": "lever"},
 ]
 
+# Titles must contain one of these specific phrases to be considered at
+# all. This replaced an earlier version that matched single loose words
+# ("analyst", "operations", "data") independently -- that caught almost
+# anything with either word anywhere in the title (Tax Analyst, Fraud
+# Operations Associate, Paid Social Analyst), regardless of whether the
+# role had anything to do with data or analytics. Requiring the fuller
+# phrase is much closer to what actually gets read as relevant.
 KEYWORDS = [
-    "analyst",
-    "data",
-    "operations",
-    "business intelligence",
-    "bi",
-    "reporting",
-    "insights",
+    "data analyst",
+    "data scientist",
+    "data operations",
+    "business analyst",
+    "business systems analyst",
+    "business intelligence analyst",
+    "bi analyst",
+    "reporting analyst",
+    "insights analyst",
+    "compliance analyst",
+    "billing analyst",
+    "operations analyst",
+    "revenue operations analyst",
+]
+
+# Backstop: even if a title matches one of the phrases above, reject it
+# outright if it also contains one of these -- catches edge cases like
+# "Business Operations Analyst, Payroll" that technically matches a
+# keyword phrase but is clearly a different kind of role in practice.
+EXCLUDE_TITLE_PHRASES = [
+    "tax",
+    "payroll",
+    "procurement",
+    "sourcing",
+    "fraud",
+    "security",
+    "equity admin",
+    "paid social",
+    "audit",
+    "legal",
+    "hardware",
 ]
 
 # ---------------------------------------------------------------------
@@ -495,7 +526,20 @@ def save_seen_jobs(seen_urls):
 
 
 def matches_keywords(title):
+    """
+    A title passes if it contains one of the specific KEYWORDS phrases
+    AND doesn't contain any EXCLUDE_TITLE_PHRASES word. The exclusion
+    check runs first and short-circuits everything else -- a title with
+    "tax" in it is rejected before we even bother checking whether it
+    also happens to contain "analyst".
+    """
     title_lower = title.lower()
+
+    for excluded in EXCLUDE_TITLE_PHRASES:
+        pattern = r"\b" + re.escape(excluded) + r"\b"
+        if re.search(pattern, title_lower):
+            return False
+
     for keyword in KEYWORDS:
         pattern = r"\b" + re.escape(keyword) + r"\b"
         if re.search(pattern, title_lower):
